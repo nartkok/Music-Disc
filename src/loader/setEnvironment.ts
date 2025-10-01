@@ -1,6 +1,7 @@
 import { ActivityType } from 'discord.js';
 import { hashGenerator } from '../lib/hashGenerator.js';
 import { config } from '../../config.js';
+import { DJModeEnum } from './../@types/index.js';
 
 import type { Config } from './../@types/index.js';
 
@@ -18,6 +19,15 @@ const setEnvironment = (defaultConfig: Config) => {
         dj: (Array.isArray(config.bot.dj) && config.bot.dj.length > 0)
             ? config.bot.dj
             : defaultConfig.bot.dj,
+        djRoleId: (/^\d+$/).test(String(config.bot.djRoleId))
+            ? String(config.bot.djRoleId)
+            : defaultConfig.bot.djRoleId,
+        djMode: Object.values(DJModeEnum).includes(config.bot.djMode as any)
+            ? config.bot.djMode
+            : defaultConfig.bot.djMode,
+        djLeaveCooldown: isNumber(config.bot.djLeaveCooldown)
+            ? config.bot.djLeaveCooldown
+            : defaultConfig.bot.djLeaveCooldown,
 
         clientSecret: config.bot.clientSecret || defaultConfig.bot.clientSecret,
 
@@ -35,7 +45,12 @@ const setEnvironment = (defaultConfig: Config) => {
             state: config.bot.activity.state || defaultConfig.bot.activity.state,
             url: config.bot.activity.url || defaultConfig.bot.activity.url,
         },
-        embedsColor: config.bot.embedsColor || defaultConfig.bot.embedsColor,
+        embedsColors: {
+            message: config.bot.embedsColors.message || defaultConfig.bot.embedsColors.message,
+            success: config.bot.embedsColors.success || defaultConfig.bot.embedsColors.success,
+            error: config.bot.embedsColors.error || defaultConfig.bot.embedsColors.error,
+            warning: config.bot.embedsColors.warning || defaultConfig.bot.embedsColors.warning
+        },
 
         // Volume settings
         volume: {
@@ -62,6 +77,12 @@ const setEnvironment = (defaultConfig: Config) => {
             ? String(config.bot.specifyMessageChannel)
             : defaultConfig.bot.specifyMessageChannel,
 
+        specifyVoiceChannel: (/^\d+$/).test(String(config.bot.specifyVoiceChannel))
+            ? String(config.bot.specifyVoiceChannel)
+            : defaultConfig.bot.specifyVoiceChannel,
+
+        startupAutoJoin: ((/^\d+$/).test(String(config.bot.specifyVoiceChannel)) && config.bot.startupAutoJoin),
+
         i18n: {
             localePath: config.bot.i18n.localePath || defaultConfig.bot.i18n.localePath,
             defaultLocale: config.bot.i18n.defaultLocale || defaultConfig.bot.i18n.defaultLocale
@@ -72,6 +93,12 @@ const setEnvironment = (defaultConfig: Config) => {
     defaultConfig.nodeList = (Array.isArray(config.nodeList) && config.nodeList.length > 0)
         ? config.nodeList
         : defaultConfig.nodeList;
+
+    // Spotify credentials
+    defaultConfig.spotify = {
+        clientId: config.spotify.clientId || defaultConfig.spotify.clientId,
+        clientSecret: config.spotify.clientSecret || defaultConfig.spotify.clientSecret
+    };
 
     defaultConfig.blacklist = (Array.isArray(config.blacklist) && config.blacklist.length > 0)
         ? config.blacklist
@@ -115,13 +142,13 @@ const setEnvironment = (defaultConfig: Config) => {
     };
 
     defaultConfig.command = {
-        disableCommand: (Array.isArray(config.command.disableCommand) && config.command.disableCommand.length > 0)
+        disableCommand: Array.isArray(config.command.disableCommand)
             ? config.command.disableCommand
             : defaultConfig.command.disableCommand,
-        adminCommand: (Array.isArray(config.command.adminCommand) && config.command.adminCommand.length > 0)
+        adminCommand: Array.isArray(config.command.adminCommand)
             ? config.command.adminCommand
             : defaultConfig.command.adminCommand,
-        djCommand: (Array.isArray(config.command.djCommand) && config.command.djCommand.length > 0)
+        djCommand: Array.isArray(config.command.djCommand)
             ? config.command.djCommand
             : defaultConfig.command.djCommand,
     };

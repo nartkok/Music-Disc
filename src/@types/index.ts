@@ -27,8 +27,22 @@ declare module 'lavashark' {
         dashboard: Message<boolean> | null;
         metadata: Message<boolean> | ChatInputCommandInteraction | null;
         setting: PlayerSetting;
+        djUsers?: Set<string>;              // Dynamic DJ users for this guild
+        djLeaveTimeout?: NodeJS.Timeout;    // Timeout for DJ leave cooldown
     }
 }
+
+export enum CommandCategory {
+    MUSIC = 'Music',
+    UTILITY = 'Utility',
+}
+
+export enum DJModeEnum {
+    STATIC = 'STATIC',
+    DYNAMIC = 'DYNAMIC',
+}
+
+export type DJMode = keyof typeof DJModeEnum;
 
 export interface PlayerSetting {
     queuePage: QueuePage | null;
@@ -69,6 +83,7 @@ export type Bot = {
 export type Config = {
     bot: BotConfig;
     nodeList: NodeOptions[];
+    spotify: SpotifyConfig;
     blacklist: string[],
     webDashboard: WebDashboardConfig;
     localNode: LocalNodeConfig;
@@ -79,7 +94,10 @@ export type BotConfig = {
     textCommand: boolean;
     slashCommand: boolean;
     admin: string[];
+    djMode: DJMode;
     dj: string[];
+    djRoleId: string | null;
+    djLeaveCooldown: number;
     clientSecret: string;
     name: string;
     prefix: string;
@@ -90,7 +108,12 @@ export type BotConfig = {
         state?: string;
         url?: string;
     }
-    embedsColor: string;
+    embedsColors: {
+        message: string;
+        success: string;
+        error: string;
+        warning: string;
+    };
     volume: {
         default: number;
         max: number;
@@ -101,11 +124,18 @@ export type BotConfig = {
     };
     displayVoiceState: boolean;
     specifyMessageChannel: string | null;
+    specifyVoiceChannel: string | null;
+    startupAutoJoin: boolean;
     i18n: {
         localePath: string;
         defaultLocale: string;
     }
 };
+
+export type SpotifyConfig = {
+    clientId: string | null;
+    clientSecret: string | null;
+}
 
 export type WebDashboardConfig = {
     enabled: boolean;

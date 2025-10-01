@@ -5,6 +5,7 @@ import {
     ButtonStyle,
     Client,
     Collection,
+    GuildMember,
     Interaction,
     StringSelectMenuBuilder,
     StringSelectMenuInteraction
@@ -14,30 +15,30 @@ import { RepeatMode } from 'lavashark';
 import { cst } from '../../utils/constants.js';
 import { embeds } from '../../embeds/index.js';
 import { dashboard } from '../../dashboard/index.js';
+import { PermissionManager } from '../../lib/PermissionManager.js';
 
 import type { Bot } from '../../@types/index.js';
 
 
 export default async (bot: Bot, client: Client, interaction: Interaction) => {
-
-    if (bot.config.blacklist && bot.config.blacklist.includes(interaction.user.id)) return;
+    if (!interaction.guild || !interaction.guild.members) return;
     if (interaction.user.bot) return;
 
+    if (bot.config.blacklist && bot.config.blacklist.includes(interaction.user.id)) return;
 
-    if (!interaction.guild || !interaction.guild.members) return;
 
     const guildMember = interaction.guild.members.cache.get(interaction.user.id);
     const voiceChannel = guildMember!.voice.channel;
 
     if (interaction.isButton()) {
         if (!voiceChannel) {
-            return interaction.reply({ content: client.i18n.t('events:ERROR_NOT_IN_VOICE_CHANNEL'), ephemeral: true, components: [] })
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_NOT_IN_VOICE_CHANNEL'))], ephemeral: true, components: [] })
                 .catch((error) => {
                     bot.logger.emit('error', bot.shardId, '[interactionCreate] Error reply: ' + error);
                 });
         }
         if (interaction.guild?.members.me?.voice.channel && voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
-            return interaction.reply({ content: client.i18n.t('events:ERROR_NOT_IN_SAME_VOICE_CHANNEL'), ephemeral: true, components: [] })
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_NOT_IN_SAME_VOICE_CHANNEL'))], ephemeral: true, components: [] })
                 .catch((error) => {
                     bot.logger.emit('error', bot.shardId, '[interactionCreate] Error reply: ' + error);
                 });
@@ -47,15 +48,36 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
         const player = client.lavashark.getPlayer(interaction.guild!.id);
 
         if (!player) {
-            return interaction.reply({ content: client.i18n.t('events:ERROR_NOT_PLAYING'), allowedMentions: { repliedUser: false } })
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_NOT_PLAYING'))], allowedMentions: { repliedUser: false } })
                 .catch((error) => {
                     bot.logger.emit('error', bot.shardId, '[interactionCreate] Error reply: ' + error);
                 });
         }
 
+
         try {
             switch (interaction.customId) {
                 case 'Dashboard-PlayPause': {
+                    // Admin command
+                    if (bot.config.command.adminCommand.includes('pause') && bot.config.command.adminCommand.includes('resume')) {
+                        if (!bot.config.bot.admin.includes(interaction.user.id))
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_ADMIN'))], ephemeral: true, components: [] })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[messageCreate] Error reply: (${interaction.user.username} : ${interaction.customId})` + error);
+                                    return;
+                                });
+                    }
+                    // DJ command
+                    if (bot.config.command.djCommand.includes('pause') && bot.config.command.djCommand.includes('resume')) {
+                        if (!PermissionManager.hasDJCommandPermission(bot, interaction.user.id, interaction.member as GuildMember, player)) {
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_DJ'))], allowedMentions: { repliedUser: false } })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.customId})` + error);
+                                });
+                        }
+                    }
+
+
                     const playing = !(player.paused);
 
                     if (playing) {
@@ -77,6 +99,26 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
                 }
 
                 case 'Dashboard-Skip': {
+                    // Admin command
+                    if (bot.config.command.adminCommand.includes('skip')) {
+                        if (!bot.config.bot.admin.includes(interaction.user.id))
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_ADMIN'))], ephemeral: true, components: [] })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[messageCreate] Error reply: (${interaction.user.username} : ${interaction.customId})` + error);
+                                    return;
+                                });
+                    }
+                    // DJ command
+                    if (bot.config.command.djCommand.includes('skip')) {
+                        if (!PermissionManager.hasDJCommandPermission(bot, interaction.user.id, interaction.member as GuildMember, player)) {
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_DJ'))], allowedMentions: { repliedUser: false } })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.customId})` + error);
+                                });
+                        }
+                    }
+
+
                     const playing = !(player.paused);
                     const repeatMode = player.repeatMode;
 
@@ -101,6 +143,26 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
                 }
 
                 case 'Dashboard-Loop': {
+                    // Admin command
+                    if (bot.config.command.adminCommand.includes('loop')) {
+                        if (!bot.config.bot.admin.includes(interaction.user.id))
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_ADMIN'))], ephemeral: true, components: [] })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[messageCreate] Error reply: (${interaction.user.username} : ${interaction.customId})` + error);
+                                    return;
+                                });
+                    }
+                    // DJ command
+                    if (bot.config.command.djCommand.includes('loop')) {
+                        if (!PermissionManager.hasDJCommandPermission(bot, interaction.user.id, interaction.member as GuildMember, player)) {
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_DJ'))], allowedMentions: { repliedUser: false } })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.customId})` + error);
+                                });
+                        }
+                    }
+
+
                     let mode = 0;
                     const methods = ['Off', 'Single', 'All'];
 
@@ -116,7 +178,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
                         }));
 
                     const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(select);
-                    const msg = await interaction.reply({ content: client.i18n.t('events:MESSAGE_SELECT_LOOP_MODE'), ephemeral: true, components: [row] });
+                    const msg = await interaction.reply({ embeds: [embeds.textMsg(bot, client.i18n.t('events:MESSAGE_SELECT_LOOP_MODE'))], ephemeral: true, components: [row] });
 
                     const collector = (interaction.channel as any /* discord.js type error ? (v14.16.2) */).createMessageComponentCollector({
                         time: 20000, // 20s
@@ -148,35 +210,76 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
 
                         await i.deferUpdate();
                         interaction.ephemeral = true;
-                        await interaction.editReply({ content: client.i18n.t('events:MESSAGE_SET_LOOP_MODE', { mode: methods[mode].toUpperCase() }), components: [] });
+                        await interaction.editReply({ embeds: [embeds.textSuccessMsg(bot, client.i18n.t('events:MESSAGE_SET_LOOP_MODE', { mode: methods[mode].toUpperCase() }))], components: [] });
                     });
 
                     collector.on('end', async (collected: Collection<string, ButtonInteraction>, reason: string) => {
                         if (reason === 'time' && collected.size === 0) {
-                            await msg.edit({ content: client.i18n.t('events:ERROR_TIME_EXPIRED'), components: [], allowedMentions: { repliedUser: false } });
+                            await msg.edit({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_TIME_EXPIRED'))], components: [], allowedMentions: { repliedUser: false } });
                         }
                     });
                     break;
                 }
 
                 case 'Dashboard-Stop': {
+                    // Admin command
+                    if (bot.config.command.adminCommand.includes('leave')) {
+                        if (!bot.config.bot.admin.includes(interaction.user.id))
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_ADMIN'))], ephemeral: true, components: [] })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[messageCreate] Error reply: (${interaction.user.username} : ${interaction.customId})` + error);
+                                    return;
+                                });
+                    }
+                    // DJ command
+                    if (bot.config.command.djCommand.includes('leave')) {
+                        if (!PermissionManager.hasDJCommandPermission(bot, interaction.user.id, interaction.member as GuildMember, player)) {
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_DJ'))], allowedMentions: { repliedUser: false } })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.customId})` + error);
+                                });
+                        }
+                    }
+
+
                     if (bot.config.bot.autoLeave.enabled) {
                         player.destroy();
+                        await interaction.reply({ embeds: [embeds.textMsg(bot, client.i18n.t('events:MESSAGE_BOT_LEAVE_CHANNEL'))], ephemeral: true, components: [] });
                     }
                     else {
                         player.queue.clear();
                         await player.skip();
                         await dashboard.destroy(bot, player);
+                        await interaction.reply({ embeds: [embeds.textMsg(bot, client.i18n.t('events:MESSAGE_BOT_STOP'))], ephemeral: true, components: [] });
                     }
 
-                    await interaction.reply({ content: client.i18n.t('events:MESSAGE_BOT_LEAVE_CHANNEL'), ephemeral: true, components: [] });
                     break;
                 }
 
                 case 'Dashboard-Shuffle': {
+                    // Admin command
+                    if (bot.config.command.adminCommand.includes('shuffle')) {
+                        if (!bot.config.bot.admin.includes(interaction.user.id))
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_ADMIN'))], ephemeral: true, components: [] })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[messageCreate] Error reply: (${interaction.user.username} : ${interaction.customId})` + error);
+                                    return;
+                                });
+                    }
+                    // DJ command
+                    if (bot.config.command.djCommand.includes('shuffle')) {
+                        if (!PermissionManager.hasDJCommandPermission(bot, interaction.user.id, interaction.member as GuildMember, player)) {
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_DJ'))], allowedMentions: { repliedUser: false } })
+                                .catch((error) => {
+                                    bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.customId})` + error);
+                                });
+                        }
+                    }
+
+
                     player.queue.shuffle();
 
-                    await interaction.reply({ content: client.i18n.t('events:MESSAGE_MUSIC_SHUFFLE'), ephemeral: true, components: [] });
+                    await interaction.reply({ embeds: [embeds.textSuccessMsg(bot, client.i18n.t('events:MESSAGE_MUSIC_SHUFFLE'))], ephemeral: true, components: [] });
                     break;
                 }
 
@@ -186,11 +289,11 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
 
                     guildMember?.send({ embeds: [embeds.save(bot, track!.title, subtitle, track!.uri, track!.thumbnail!)] })
                         .then(() => {
-                            return interaction.reply({ content: client.i18n.t('events:MESSAGE_SEND_PRIVATE_MESSAGE'), ephemeral: true, components: [] });
+                            return interaction.reply({ embeds: [embeds.textSuccessMsg(bot, client.i18n.t('events:MESSAGE_SEND_PRIVATE_MESSAGE'))], ephemeral: true, components: [] });
                         })
                         .catch((error) => {
                             bot.logger.emit('error', bot.shardId, 'Error musicSave:' + error);
-                            return interaction.reply({ content: client.i18n.t('events:ERROR_SEND_PRIVATE_MESSAGE'), ephemeral: true, components: [] });
+                            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_SEND_PRIVATE_MESSAGE'))], ephemeral: true, components: [] });
                         });
 
                     break;
@@ -225,7 +328,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
                     }
                     else {
                         tracksQueue = tracks.join('\n');
-                        tracksQueue += `\n\n----- Page ${page}/${player.setting.queuePage.maxPage} -----`;
+                        tracksQueue += client.i18n.t('events:MESSAGE_QUEUE_PAGE', { curPage: page, maxPage: player.setting.queuePage.maxPage });
                     }
 
                     const methods = ['Off', 'Single', 'All'];
@@ -276,7 +379,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
                     }
                     else {
                         tracksQueue = tracks.join('\n');
-                        tracksQueue += `\n\n----- Page ${page}/${player.setting.queuePage.maxPage} -----`;
+                        tracksQueue += client.i18n.t('events:MESSAGE_QUEUE_PAGE', { curPage: page, maxPage: player.setting.queuePage.maxPage });
                     }
 
                     const methods = ['Off', 'Single', 'All'];
@@ -364,7 +467,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
         if (!interaction.isCommand() || !interaction.inGuild()) return;
 
         if (!bot.config.bot.slashCommand) {
-            return interaction.reply({ content: client.i18n.t('events:ERROR_SLASH_NOT_ENABLE'), allowedMentions: { repliedUser: false } })
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_SLASH_NOT_ENABLE'))], allowedMentions: { repliedUser: false } })
                 .catch((error) => {
                     bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
                     return;
@@ -377,7 +480,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
         if (!cmd) return;
 
         if (bot.config.bot.specifyMessageChannel && bot.config.bot.specifyMessageChannel !== interaction.channelId) {
-            return interaction.reply({ content: client.i18n.t('events:MESSAGE_SPECIFIC_CHANNEL_WARN', { channelId: bot.config.bot.specifyMessageChannel }), allowedMentions: { repliedUser: false } })
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:MESSAGE_SPECIFIC_CHANNEL_WARN', { channelId: bot.config.bot.specifyMessageChannel }))], allowedMentions: { repliedUser: false } })
                 .catch((error) => {
                     bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
                     return;
@@ -387,7 +490,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
         // Admin command
         if (bot.config.command.adminCommand.includes(cmd.name)) {
             if (!bot.config.bot.admin.includes(interaction.user.id))
-                return interaction.reply({ content: client.i18n.t('events:ERROR_REQUIRE_ADMIN'), allowedMentions: { repliedUser: false } })
+                return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_ADMIN'))], allowedMentions: { repliedUser: false } })
                     .catch((error) => {
                         bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
                         return;
@@ -396,17 +499,27 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
 
         // DJ command
         if (bot.config.command.djCommand.includes(cmd.name)) {
-            if (!bot.config.bot.admin.includes(interaction.user.id) && !bot.config.bot.dj.includes(interaction.user.id))
-                return interaction.reply({ content: client.i18n.t('events:ERROR_REQUIRE_DJ'), allowedMentions: { repliedUser: false } })
+            const player = client.lavashark.getPlayer(interaction.guild!.id);
+            if (!PermissionManager.hasDJCommandPermission(bot, interaction.user.id, interaction.member as GuildMember, player || undefined)) {
+                return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_REQUIRE_DJ'))], allowedMentions: { repliedUser: false } })
+                    .catch((error) => {
+                        bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
+                    });
+            }
+        }
+
+        // Check voice channel
+        if (cmd.voiceChannel) {
+            if (!voiceChannel) {
+                return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_NOT_IN_VOICE_CHANNEL'))], allowedMentions: { repliedUser: false } })
                     .catch((error) => {
                         bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
                         return;
                     });
-        }
+            }
 
-        if (cmd.voiceChannel) {
-            if (!voiceChannel) {
-                return interaction.reply({ content: client.i18n.t('events:ERROR_NOT_IN_VOICE_CHANNEL'), allowedMentions: { repliedUser: false } })
+            if (bot.config.bot.specifyVoiceChannel && voiceChannel.id !== bot.config.bot.specifyVoiceChannel) {
+                return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERRPR_NOT_IN_SPECIFIC_VOICE_CHANNEL', { channelId: bot.config.bot.specifyVoiceChannel }))], allowedMentions: { repliedUser: false } })
                     .catch((error) => {
                         bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
                         return;
@@ -414,7 +527,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
             }
 
             if (interaction.guild?.members.me?.voice.channel && voiceChannel.id !== interaction.guild.members.me.voice.channelId) {
-                return interaction.reply({ content: client.i18n.t('events:ERROR_NOT_IN_SAME_VOICE_CHANNEL'), allowedMentions: { repliedUser: false } })
+                return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_NOT_IN_SAME_VOICE_CHANNEL'))], allowedMentions: { repliedUser: false } })
                     .catch((error) => {
                         bot.logger.emit('error', bot.shardId, `[interactionCreate] Error reply: (${interaction.user.username} : /${interaction.commandName})` + error);
                         return;
@@ -432,7 +545,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
             guild = await client.guilds.fetch(interaction.guildId!);
         } catch (error) {
             bot.logger.emit('error', bot.shardId, `[interactionCreate] Error fetching guild: ${error}`);
-            return interaction.reply({ content: client.i18n.t('events:ERROR_GET_GUILD_DATA_CACHE'), allowedMentions: { repliedUser: false } });
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_GET_GUILD_DATA_CACHE'))], allowedMentions: { repliedUser: false } });
         }
 
         // Ensure member is in cache
@@ -440,7 +553,7 @@ export default async (bot: Bot, client: Client, interaction: Interaction) => {
             await guild.members.fetch(interaction.user.id);
         } catch (error) {
             bot.logger.emit('error', bot.shardId, `[interactionCreate] Error fetching member: ${error}`);
-            return interaction.reply({ content: client.i18n.t('events:ERROR_GET_GUILD_DATA_CACHE'), allowedMentions: { repliedUser: false } });
+            return interaction.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('events:ERROR_GET_GUILD_DATA_CACHE'))], allowedMentions: { repliedUser: false } });
         }
 
 

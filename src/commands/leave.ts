@@ -1,13 +1,17 @@
-import { dashboard } from '../dashboard/index.js';
+import i18next from 'i18next';
+
+import { embeds } from '../embeds/index.js';
+import { CommandCategory } from '../@types/index.js';
 
 import type { ChatInputCommandInteraction, Client, Message } from 'discord.js';
 import type { Bot } from '../@types/index.js';
 
 
 export const name = 'leave';
-export const aliases = ['stop'];
-export const description = 'Leave current voice channel';
-export const usage = 'leave';
+export const aliases = [];
+export const description = i18next.t('commands:CONFIG_LEAVE_DESCRIPTION');
+export const usage = i18next.t('commands:CONFIG_LEAVE_USAGE');
+export const category = CommandCategory.MUSIC;
 export const voiceChannel = true;
 export const showHelp = true;
 export const sendTyping = false;
@@ -18,17 +22,11 @@ export const execute = async (bot: Bot, client: Client, message: Message) => {
     const player = client.lavashark.getPlayer(message.guild!.id);
 
     if (!player) {
-        return message.reply({ content: client.i18n.t('commands:ERROR_NO_PLAYING'), allowedMentions: { repliedUser: false } });
+        return message.reply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('commands:ERROR_NO_PLAYING'))], allowedMentions: { repliedUser: false } });
     }
 
-    if (bot.config.bot.autoLeave.enabled) {
-        player.destroy();
-    }
-    else {
-        player.queue.clear();
-        await player.skip();
-        await dashboard.destroy(bot, player);
-    }
+
+    player.destroy();
 
     return message.react('👍');
 };
@@ -37,17 +35,11 @@ export const slashExecute = async (bot: Bot, client: Client, interaction: ChatIn
     const player = client.lavashark.getPlayer(interaction.guild!.id);
 
     if (!player) {
-        return interaction.editReply({ content: client.i18n.t('commands:ERROR_NO_PLAYING'), allowedMentions: { repliedUser: false } });
+        return interaction.editReply({ embeds: [embeds.textErrorMsg(bot, client.i18n.t('commands:ERROR_NO_PLAYING'))], allowedMentions: { repliedUser: false } });
     }
 
-    if (bot.config.bot.autoLeave.enabled) {
-        player.destroy();
-    }
-    else {
-        player.queue.clear();
-        await player.skip();
-        await dashboard.destroy(bot, player);
-    }
 
-    return interaction.editReply(client.i18n.t('commands:MESSAGE_LEAVE_SUCCESS'));
+    player.destroy();
+
+    return interaction.editReply({ embeds: [embeds.textSuccessMsg(bot, client.i18n.t('commands:MESSAGE_LEAVE_SUCCESS'))], allowedMentions: { repliedUser: false } });
 };
